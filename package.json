@@ -1,0 +1,26 @@
+{
+  "name": "veta-atlas",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "VETA — Atlas de superficies. Explorador infinito de superficies porcelánicas.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "textures": "python scripts/build_textures.py",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/three": "^0.186.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.2.0",
+    "@fontsource-variable/geist-mono": "^5.2.0",
+    "@fontsource/instrument-serif": "^5.2.0",
+    "fflate": "^0.8.2",
+    "three": "^0.186.1"
+  }
+}

@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>VETA — Atlas de superficies</title>
+    <meta name="description" content="Atlas infinito de 48 superficies porcelánicas ordenadas por tono. Explora mármoles, maderas, terrazos y cementos como un mapa: la luz revela cada acabado." />
+    <meta name="theme-color" content="#0e0d0c" />
+    <meta name="color-scheme" content="dark" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="VETA — Atlas de superficies" />
+    <meta property="og:description" content="48 superficies porcelánicas en un mapa infinito, ordenadas por tono. Proyecto conceptual." />
+    <meta property="og:image" content="og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="fonts/instrument-serif.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/instrument-serif-italic.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/geist.woff2" as="font" type="font/woff2" crossorigin />
+  </head>
+  <body data-view="atlas">
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+      <defs>
+        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+        <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 7h16M7 12h10M10 17h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></symbol>
+        <symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+        <symbol id="i-list" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></symbol>
+        <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+        <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+        <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+        <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></symbol>
+        <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5m6-6-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V4h10v5M7 17H5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M7 14h10v6H7z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+        <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+        <symbol id="i-scale" viewBox="0 0 24 24"><path d="M4 9V4h5M20 15v5h-5M4 4l6 6M20 20l-6-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-sample" viewBox="0 0 24 24"><path d="M4 4h10v10H4z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 10h10v10H10z" fill="currentColor" opacity=".35"/></symbol>
+        <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></symbol>
+      </defs>
+    </svg>
+
+    <a class="skip" href="#index" data-i18n="skip.index">Saltar al índice de superficies</a>
+
+    <div id="intro" aria-hidden="true">
+      <div class="intro-inner">
+        <p class="intro-word"><span>V</span><span>E</span><span>T</span><span>A</span></p>
+        <p class="intro-lede" data-i18n="intro.lede">48 superficies porcelánicas ordenadas por tono.</p>
+        <p class="intro-count"><span data-i18n="intro.loading">Cargando superficies</span> <span id="intro-n">00</span>/48</p>
+      </div>
+    </div>
+
+    <canvas id="gl" aria-hidden="true"></canvas>
+
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="VETA — inicio">
+        <span class="brand-word">VETA</span>
+        <span class="brand-tag" data-i18n="brand.tagline">Atlas de superficies</span>
+      </a>
+      <nav class="actions" aria-label="Principal">
+        <button class="btn btn-search" type="button" id="open-search" aria-haspopup="dialog" aria-keyshortcuts="/ Control+K Meta+K">
+          <svg width="18" height="18" aria-hidden="true"><use href="#i-search"/></svg>
+          <span class="lbl" data-i18n="nav.search">Buscar</span><kbd aria-hidden="true">/</kbd>
+        </button>
+        <button class="btn" type="button" id="open-filters" aria-haspopup="dialog" aria-keyshortcuts="F">
+          <svg width="18" height="18" aria-hidden="true"><use href="#i-filter"/></svg>
+          <span class="lbl" data-i18n="nav.filters">Filtros</span><span class="badge" id="filter-badge" hidden></span>
+        </button>
+        <div class="seg" role="group" data-i18n-attr="aria-label:nav.view">
+          <button type="button" id="view-atlas" aria-pressed="true"><svg width="16" height="16" aria-hidden="true"><use href="#i-grid"/></svg><span class="lbl" data-i18n="nav.atlas">Atlas</span></button>
+          <button type="button" id="view-index" aria-pressed="false" aria-keyshortcuts="I"><svg width="16" height="16" aria-hidden="true"><use href="#i-list"/></svg><span class="lbl" data-i18n="nav.index">Índice</span></button>
+        </div>
+        <button class="btn" type="button" id="open-selection" aria-haspopup="dialog">
+          <svg width="18" height="18" aria-hidden="true"><use href="#i-bag"/></svg>
+          <span class="lbl" data-i18n="nav.selection">Selección</span><span class="badge" id="sel-badge" hidden></span>
+        </button>
+        <button class="btn btn-icon" type="button" id="open-about" aria-haspopup="dialog" data-i18n-attr="aria-label:nav.about">
+          <svg width="18" height="18" aria-hidden="true"><use href="#i-dots"/></svg>
+        </button>
+      </nav>
+    </header>
+
+    <div class="active-filters" id="active-filters" hidden></div>
+
+    <main id="main">
+      <h1 class="sr-only" data-i18n="meta.title">VETA — Atlas de superficies</h1>
+      <section id="atlas" aria-labelledby="atlas-title">
+        <h2 id="atlas-title" class="sr-only" data-i18n="atlas.label">Atlas de superficies</h2>
+        <p id="atlas-help" class="sr-only" data-i18n="atlas.help"></p>
+        <div id="atlas-grid" role="grid" aria-labelledby="atlas-title" aria-describedby="atlas-help"></div>
+        <div id="labels" aria-hidden="true" hidden></div>
+        <div id="caption" aria-hidden="true" data-show="false"><b></b><span></span></div>
+      </section>
+
+      <section id="index" tabindex="-1" aria-labelledby="index-title" hidden>
+        <div class="index-head">
+          <h2 id="index-title" data-i18n="index.title">Índice de superficies</h2>
+          <p class="index-count" id="index-count" aria-live="polite"></p>
+          <label class="sort">
+            <span data-i18n="index.sort">Ordenar por</span>
+            <select id="index-sort">
+              <option value="tone" data-i18n="index.sort.tone">Tono</option>
+              <option value="name" data-i18n="index.sort.name">Nombre</option>
+              <option value="collection" data-i18n="index.sort.collection">Colección</option>
+            </select>
+          </label>
+        </div>
+        <ul class="cards" id="cards" role="list"></ul>
+      </section>
+    </main>
+
+    <aside class="dock" aria-label="Navegación del atlas">
+      <div class="map" id="map">
+        <div class="map-axes" aria-hidden="true">
+          <span class="ax ax-t" data-i18n="map.light">Claro</span>
+          <span class="ax ax-b" data-i18n="map.dark">Oscuro</span>
+          <span class="ax ax-l" data-i18n="map.cool">Frío</span>
+          <span class="ax ax-r" data-i18n="map.warm">Cálido</span>
+        </div>
+        <canvas id="map-canvas" role="img" data-i18n-attr="aria-label:map.label"></canvas>
+        <div class="map-hit" id="map-hit"></div>
+      </div>
+      <p class="dock-count"><span id="count"></span><span class="hint" id="hint"></span></p>
+      <div class="zoom" role="group" aria-label="Zoom">
+        <button type="button" class="btn btn-icon" id="zoom-out" data-i18n-attr="aria-label:zoom.out" aria-keyshortcuts="-"><svg width="18" height="18" aria-hidden="true"><use href="#i-minus"/></svg></button>
+        <button type="button" class="btn btn-icon" id="zoom-reset" data-i18n-attr="aria-label:zoom.reset" aria-keyshortcuts="0"><svg width="18" height="18" aria-hidden="true"><use href="#i-target"/></svg></button>
+        <button type="button" class="btn btn-icon" id="zoom-in" data-i18n-attr="aria-label:zoom.in" aria-keyshortcuts="+"><svg width="18" height="18" aria-hidden="true"><use href="#i-plus"/></svg></button>
+      </div>
+    </aside>
+
+    <dialog id="detail" aria-labelledby="d-name"></dialog>
+    <dialog id="filters" class="sheet" aria-labelledby="f-title"></dialog>
+    <dialog id="search" class="palette" aria-labelledby="s-label"></dialog>
+    <dialog id="selection" class="drawer" aria-labelledby="sel-title"></dialog>
+    <dialog id="about" class="sheet" aria-labelledby="about-title"></dialog>
+
+    <div id="print-sheet" aria-hidden="true"></div>
+    <div id="toast" role="status" data-show="false"></div>
+    <div id="live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <noscript><p class="noscript">VETA necesita JavaScript para mostrar el atlas de superficies.</p></noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
