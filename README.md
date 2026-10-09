@@ -36,6 +36,8 @@ Concepto de producto digital para una marca cerámica **ficticia**: un catálogo
 
 `/` o `Ctrl K` buscar · `F` filtros · `I` atlas/índice · `+` `−` zoom · `0` centrar · flechas para moverse · `Intro` abrir · `Esc` cerrar · `?` proyecto y atajos.
 
+Los atajos de una sola tecla se pueden desactivar en «Proyecto» → «Atajos de una tecla» (siguen `Ctrl K` y las teclas de la retícula cuando tiene el foco). En la ficha, con el foco en el visor o en la estancia 3D: flechas para desplazar o girar, `+` `−` para acercar y alejar, `Inicio` para volver la cámara. Las mismas acciones tienen botones en el visor.
+
 ## Desarrollo
 
 ```bash

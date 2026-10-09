@@ -1,7 +1,7 @@
 import './styles/main.css';
 import { applyI18n, t, tn, onLang, lang, type Key } from './i18n';
 import { materials, matches, bySlug, emptyFilters, loc, parseFormat, texUrl, type Material, type Finish } from './data/materials';
-import { filters, selection, reducedMotion, view, writeQuery, upsertSelected, isSelected, type View } from './state';
+import { filters, selection, reducedMotion, singleKeys, view, writeQuery, upsertSelected, isSelected, type View } from './state';
 import { Renderer } from './gl/renderer';
 import { Atlas } from './atlas/atlas';
 import { Detail, type OpenCtx } from './ui/detail';
@@ -12,7 +12,7 @@ import { IndexView } from './ui/indexView';
 import { Minimap } from './ui/minimap';
 import { AboutUI } from './ui/about';
 import { announce, toast } from './ui/live';
-import { $, h, svgIcon, finePointer } from './lib/dom';
+import { $, $$, h, svgIcon, finePointer } from './lib/dom';
 
 const body = document.body;
 document.documentElement.lang = lang();
@@ -84,6 +84,8 @@ filters.sub(() => {
 
 const syncSelected = () => {
   renderer.setSelected(materials.map((m) => isSelected(m.slug)));
+  // the dot drawn on the canvas also goes into each cell's name
+  atlas.relabel();
   atlas.invalidate();
 };
 selection.sub(syncSelected);
@@ -194,7 +196,33 @@ if (shared) {
   if (n) setTimeout(() => toast(t('sel.loaded', { n })), 1800);
 }
 
+/* ---------------------------------------------------------------- host badge */
+
+// Netlify may inject its «Powered by Netlify» badge: a fixed iframe in the bottom-right corner,
+// above everything. While it is there the dock lifts its zoom buttons out of its way (WCAG 2.4.11).
+const HOST_BADGE = '#nl-badge-frame, #nl-hud-frame';
+const syncHostBadge = () => body.toggleAttribute('data-host-badge', !!document.querySelector(HOST_BADGE));
+new MutationObserver(syncHostBadge).observe(body, { childList: true });
+syncHostBadge();
+
 /* ---------------------------------------------------------------- keyboard */
+
+/** Zoom keys that belong to the atlas itself (kept, while it has focus, when single-key shortcuts are off). */
+const ATLAS_KEYS = ['+', '=', '-', '_', '0'];
+
+// aria-keyshortcuts and the visible «/» only announce what is active
+const keyHints = $$<HTMLElement>('[aria-keyshortcuts]').map((el) => [el, el.getAttribute('aria-keyshortcuts')!] as const);
+const syncKeyHints = () => {
+  const on = singleKeys.get();
+  for (const [el, all] of keyHints) {
+    const keep = on ? all : all.split(' ').filter((k) => k.length > 1 && k.includes('+')).join(' ');
+    if (keep) el.setAttribute('aria-keyshortcuts', keep);
+    else el.removeAttribute('aria-keyshortcuts');
+  }
+  $('.btn-search kbd').hidden = !on;
+};
+syncKeyHints();
+singleKeys.sub(syncKeyHints);
 
 addEventListener('keydown', (e) => {
   const el = e.target as HTMLElement;
@@ -206,6 +234,9 @@ addEventListener('keydown', (e) => {
     return;
   }
   if (typing || dialogOpen || e.metaKey || e.ctrlKey || e.altKey) return;
+  // WCAG 2.1.4: single characters only act everywhere while the shortcuts are on
+  // («Proyecto» → «Atajos de una tecla»); when off, zoom keys still work inside the focused atlas
+  if (!singleKeys.get() && e.key.length === 1 && !(ATLAS_KEYS.includes(e.key) && el.closest('#atlas-grid'))) return;
   const inAtlas = view.get() === 'atlas';
   switch (e.key) {
     case '/':

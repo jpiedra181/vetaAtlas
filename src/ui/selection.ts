@@ -6,6 +6,9 @@ import { announce, toast } from './live';
 
 type Step = 'list' | 'form' | 'ok';
 
+/** Field named in each link of the error summary, so identical messages stay distinguishable (WCAG 2.4.4). */
+const FIELD_NAME: Record<string, Key> = { 'rq-name': 'form.name', 'rq-email': 'form.email', 'rq-project': 'form.project', 'rq-privacy': 'form.privacy.short' };
+
 export class SelectionUI {
   onOpenMaterial: (m: Material) => void = () => {};
   private step: Step = 'list';
@@ -138,7 +141,9 @@ export class SelectionUI {
       input.setAttribute('aria-describedby', `${id}-err`);
       return h('div.field', {}, h('label', { for: id }, label, optional ? h('span.opt', {}, ` (${t('form.optional')})`) : null), input, err);
     };
-    const summary = h('div.err-summary', { role: 'alert', tabindex: -1, hidden: true });
+    // Sin role=alert: el resumen recibe el foco y NVDA ya lo lee entero; con los dos,
+    // lo anunciaba dos veces.
+    const summary = h('div.err-summary', { tabindex: -1, hidden: true });
     const name = h('input', { name: 'name', autocomplete: 'name', required: true });
     const email = h('input', { name: 'email', type: 'email', autocomplete: 'email', required: true, inputmode: 'email' });
     const studio = h('input', { name: 'studio', autocomplete: 'organization' });
@@ -179,7 +184,7 @@ export class SelectionUI {
       if (errors.length) {
         summary.hidden = false;
         summary.replaceChildren(h('p', {}, t('form.err.summary', { n: errors.length })),
-          h('ul', {}, ...errors.map(([el, msg]) => h('li', {}, h('a', { href: `#${el.id}`, onclick: (ev: Event) => { ev.preventDefault(); el.focus(); } }, msg)))));
+          h('ul', {}, ...errors.map(([el, msg]) => h('li', {}, h('a', { href: `#${el.id}`, onclick: (ev: Event) => { ev.preventDefault(); el.focus(); } }, `${t(FIELD_NAME[el.id])}: ${msg}`)))));
         summary.focus();
         return;
       }

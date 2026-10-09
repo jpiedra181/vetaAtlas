@@ -1,6 +1,9 @@
 import type { Atlas } from '../atlas/atlas';
 import { materials } from '../data/materials';
 
+/** Pointer travel (px) before a press on the map counts as a drag. */
+const MAP_DRAG_SLOP = 4;
+
 /** Tone map of the repeating block, with the viewport drawn on top. */
 export class Minimap {
   private ctx: CanvasRenderingContext2D;
@@ -15,7 +18,13 @@ export class Minimap {
       this.mark = m ? this.atlas.layout.order.indexOf(m.index) : -1;
       this.schedule();
     };
-    let dragging = false;
+    // WCAG 2.5.2: a tap travels on release; a drag scrubs the atlas and is undone if released outside the map
+    let drag: null | { id: number; x: number; y: number; moved: boolean; from: { cx: number; cy: number; zoom: number } } = null;
+    const inside = (e: PointerEvent) => {
+      const r = hit.getBoundingClientRect();
+      return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    };
+    const restore = (v: { cx: number; cy: number; zoom: number }) => this.atlas.flyTo([v.cx - 0.5, v.cy - 0.5], { zoom: v.zoom, instant: true });
     const go = (e: PointerEvent, instant: boolean) => {
       const r = this.canvas.getBoundingClientRect();
       const { W, H, order } = this.atlas.layout;
@@ -27,13 +36,27 @@ export class Minimap {
       if (cell) this.atlas.flyTo(cell, { instant });
     };
     hit.addEventListener('pointerdown', (e) => {
-      dragging = true;
+      const a = this.atlas;
+      drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, from: { cx: a.cx, cy: a.cy, zoom: a.zoom } };
       hit.setPointerCapture(e.pointerId);
-      go(e, false);
     });
-    hit.addEventListener('pointermove', (e) => dragging && go(e, true));
-    hit.addEventListener('pointerup', () => (dragging = false));
-    hit.addEventListener('pointercancel', () => (dragging = false));
+    hit.addEventListener('pointermove', (e) => {
+      if (!drag || drag.id !== e.pointerId) return;
+      if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < MAP_DRAG_SLOP) return;
+      drag.moved = true;
+      go(e, true);
+    });
+    hit.addEventListener('pointerup', (e) => {
+      if (!drag || drag.id !== e.pointerId) return;
+      if (!inside(e)) {
+        if (drag.moved) restore(drag.from);
+      } else go(e, drag.moved);
+      drag = null;
+    });
+    hit.addEventListener('pointercancel', () => {
+      if (drag?.moved) restore(drag.from);
+      drag = null;
+    });
     addEventListener('resize', () => this.layout());
   }
 

@@ -5,6 +5,9 @@ import { h } from '../lib/dom';
 
 export type Sort = 'tone' | 'name' | 'collection';
 
+/** Button name: the selection dot on the card is said too (WCAG 1.3.1). */
+const cardLabel = (m: Material) => t('index.open', { name: m.name }) + (isSelected(m.slug) ? `, ${t('detail.added').toLowerCase()}` : '');
+
 export class IndexView {
   onOpen: (m: Material, rect: DOMRect) => void = () => {};
   sort: Sort = 'tone';
@@ -44,7 +47,7 @@ export class IndexView {
     this.cards.replaceChildren(
       ...sorted.map((m) =>
         h('li.card', { 'data-slug': m.slug },
-          h('button', { type: 'button', 'aria-label': t('index.open', { name: m.name }) },
+          h('button', { type: 'button', 'aria-label': cardLabel(m) },
             h('div.img', {},
               h('img', { src: texUrl('s', m.slug, 'c'), alt: '', width: 256, height: 256, loading: 'lazy', decoding: 'async' }),
               isSelected(m.slug) ? h('span.dot', { 'aria-hidden': 'true' }) : null),
@@ -62,6 +65,8 @@ export class IndexView {
       const dot = img.querySelector('.dot');
       if (on && !dot) img.append(h('span.dot', { 'aria-hidden': 'true' }));
       else if (!on && dot) dot.remove();
+      const m = this.list.find((x) => x.slug === li.dataset.slug);
+      if (m) li.querySelector('button')!.setAttribute('aria-label', cardLabel(m));
     });
   }
 }

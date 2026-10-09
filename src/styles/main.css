@@ -33,6 +33,7 @@
   --chip: rgba(22, 20, 18, 0.95);
   --line: rgba(237, 231, 222, 0.12);
   --line-strong: rgba(237, 231, 222, 0.26);
+  --line-field: rgba(237, 231, 222, 0.5);
   --text: #ede7de;
   --muted: #aaa298;
   --accent: #e07a4f;
@@ -72,6 +73,13 @@ img { display: block; max-width: 100%; }
 h1, h2, h3, p { margin: 0; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Controls that float over the textures: a light ring with a dark band inside, like the grid cells,
+   so the indicator reads on light marble and on dark wood alike (WCAG 1.4.11) */
+.topbar :focus-visible, .active-filters :focus-visible, .dock :focus-visible, .d-ui :focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--bg);
+}
 
 .sr-only {
   position: absolute !important;
@@ -138,7 +146,7 @@ body.detail-open #gl { visibility: visible; z-index: 30; pointer-events: none; }
 #caption { opacity: 0; transition: opacity 0.18s; }
 #caption[data-show='true'] { opacity: 1; }
 #labels { position: absolute; inset: 0; }
-.zlabel { background: rgba(14, 13, 12, 0.72); }
+.zlabel { background: rgba(14, 13, 12, 0.88); } /* 4.5:1 for the small line even on the lightest marble */
 
 /* ---------------------------------------------------------------- top bar */
 
@@ -197,7 +205,7 @@ body.detail-open #gl { visibility: visible; z-index: 30; pointer-events: none; }
   transition: background-color 0.2s, color 0.2s;
 }
 .seg button:hover { color: var(--text); }
-.seg button[aria-pressed='true'] { background: var(--text); color: var(--bg); }
+.seg button[aria-pressed='true'], .seg [role='tab'][aria-selected='true'] { background: var(--text); color: var(--bg); }
 
 .active-filters {
   position: fixed; z-index: 9;
@@ -235,6 +243,12 @@ body.detail-open #gl { visibility: visible; z-index: 30; pointer-events: none; }
   :root { --btn: 40px; }
   .actions { gap: 4px; }
   .topbar { gap: 6px; }
+}
+/* 320 px (1280 px at 400 %): the whole top bar has to fit, «Proyecto» included (WCAG 1.4.10) */
+@media (max-width: 360px) {
+  :root { --pad: 10px; --btn: 36px; }
+  .actions { gap: 2px; }
+  .brand { padding: 6px 10px; }
 }
 
 /* ---------------------------------------------------------------- dock */
@@ -283,6 +297,9 @@ body[data-view='index'] .dock { display: none; }
 .hint { font: 500 10.5px/1.4 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); transition: opacity 0.6s; }
 .hint[data-hide='true'] { opacity: 0; }
 .zoom { display: flex; gap: 6px; }
+/* Netlify's badge, when the host injects it (main.ts sets data-host-badge): fixed in the bottom-right
+   corner, its clickable area reaches 61 px up and 194 px in. The zoom buttons go above it (WCAG 2.4.11). */
+body[data-host-badge] .dock .zoom { margin-bottom: 52px; }
 @media (max-width: 720px) {
   .map { padding: 14px 16px; }
   .map-hit { inset: 14px 16px; }
@@ -292,6 +309,11 @@ body[data-view='index'] .dock { display: none; }
   .hint { display: none; }
   .dock-count { padding: 8px 12px; }
   .zoom #zoom-reset { display: none; }
+}
+@media (max-width: 480px) {
+  /* narrow screens: the badge would also cover the count, so the whole dock goes above it */
+  body[data-host-badge] .dock { bottom: calc(var(--bottom) + 52px); }
+  body[data-host-badge] .dock .zoom { margin-bottom: 0; }
 }
 
 /* ---------------------------------------------------------------- intro */
@@ -374,7 +396,7 @@ dialog[open] { animation: dlg-in 0.35s var(--ease); }
 }
 .chip .n { font: 500 11px/1 var(--mono); color: var(--muted); }
 .chip[aria-pressed='true'] .n { color: rgba(14, 13, 12, 0.65); }
-.chip[data-zero='true'] { opacity: 0.45; }
+.chip[data-zero='true'] { color: var(--muted); border-style: dashed; } /* still pressable: no dimming below 4.5:1 */
 .chip .sw { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.25); }
 .radio { position: relative; display: inline-flex; }
 .radio input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
@@ -390,6 +412,8 @@ dialog.sheet {
   border-radius: 18px;
   overflow: auto;
   overscroll-behavior: contain;
+  /* keep the focused option clear of the sticky header (73 px) and footer (69 px) (WCAG 2.4.11) */
+  scroll-padding-block: 80px 76px;
 }
 #filters::backdrop { background: rgba(6, 5, 4, 0.18); }
 .facets { display: grid; gap: 22px; padding: 22px 24px 26px; }
@@ -477,7 +501,7 @@ form.request { display: grid; gap: 16px; padding: 22px 24px 28px; }
   width: 100%; min-height: 46px;
   padding: 10px 14px;
   border-radius: 10px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--line-field); /* ≥ 3:1 against the dialog and the field itself (WCAG 1.4.11) */
   background: var(--surface-2);
   outline: none;
   transition: border-color 0.2s;
@@ -529,32 +553,50 @@ dialog#detail::backdrop { background: transparent; }
   grid-template-columns: minmax(0, 1fr) min(480px, 40vw);
   height: 100%;
 }
-.d-viewer { position: relative; min-height: 0; touch-action: none; }
+.d-viewer { position: relative; min-height: 0; touch-action: none; container-type: inline-size; }
 .d-hole { position: absolute; inset: 0; cursor: grab; }
-.d-hole:focus-visible { outline-offset: -4px; }
+.d-hole:focus-visible { outline: 2px solid var(--text); outline-offset: -4px; box-shadow: inset 0 0 0 6px var(--bg); }
 .d-panel:focus-visible { outline-offset: -3px; }
 .d-hole.is-panning { cursor: grabbing; }
 .d-space { position: absolute; inset: 0; }
 .d-space canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+/* the room can take focus (keyboard camera). A canvas paints over its own inset shadow, so the
+   two-tone ring is drawn on top by the host; the transparent outline shows in forced colours. */
+.d-space canvas:focus-visible { outline: 2px solid transparent; outline-offset: -4px; }
+.d-space:has(> canvas:focus-visible)::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--bg), inset 0 0 0 4px var(--text), inset 0 0 0 6px var(--bg);
+}
+@supports not selector(:has(*)) { .d-space canvas:focus-visible { outline-color: var(--text); } }
 .d-space .space-status { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font: 500 11px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; background: var(--bg); }
 .d-ui {
   position: absolute; inset: 0;
   display: grid;
   grid-template-rows: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'top top' 'hint hint' 'bottom pad';
+  column-gap: 10px;
   padding: var(--top) var(--pad) var(--pad);
   pointer-events: none;
   transition: opacity 0.4s;
 }
 .d-ui > * { pointer-events: none; }
 .d-ui .btn, .d-ui .seg, .d-ui .d-nav { pointer-events: auto; }
-.d-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.d-bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.d-top { grid-area: top; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.d-bottom { grid-area: bottom; display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
 .d-nav { display: flex; gap: 6px; }
+/* pan / zoom the piece, or turn / tilt / zoom the room: single-pointer alternative to dragging (WCAG 2.5.1, 2.5.7) */
+.d-pad { grid-area: pad; align-self: end; display: flex; gap: 6px; }
+@container (max-width: 720px) {
+  .d-ui { grid-template-rows: auto 1fr auto auto; grid-template-columns: minmax(0, 1fr); grid-template-areas: 'top' 'hint' 'pad' 'bottom'; }
+  .d-pad { justify-self: end; margin-bottom: 10px; }
+}
 .d-hint {
+  grid-area: hint;
   justify-self: center; align-self: end;
   margin-bottom: 14px;
   padding: 7px 12px; border-radius: 999px;
-  background: rgba(14, 13, 12, 0.75);
+  background: rgba(14, 13, 12, 0.88); /* 4.5:1 on the lightest marble (WCAG 1.4.3) */
   font: 500 10.5px/1.3 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
   transition: opacity 0.6s;
 }
@@ -618,6 +660,10 @@ dialog#detail::backdrop { background: transparent; }
   .combine { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
   .combine span { font-size: 14px; }
 }
+@media (max-width: 720px) {
+  /* three rows of controls (top bar, view buttons, tabs) have to fit in the viewer, also at 400 % zoom */
+  .d-wrap { grid-template-rows: max(46svh, calc(var(--btn) * 3 + 56px)) minmax(0, 1fr); }
+}
 @media (max-width: 440px) {
   .d-bottom { flex-wrap: nowrap; }
   .d-scale-tag { display: none; }
@@ -672,7 +718,7 @@ html[data-motion='reduce'] #intro { transition: opacity 0.4s !important; clip-pa
 html[data-motion='reduce'] #intro[data-out='true'] { opacity: 0; }
 
 @media (forced-colors: active) {
-  .btn, .chip, .seg button[aria-pressed='true'] { border: 1px solid ButtonText; }
+  .btn, .chip, .seg button[aria-pressed='true'], .seg [role='tab'][aria-selected='true'] { border: 1px solid ButtonText; }
   .gc[data-active] { outline: 3px solid Highlight; }
 }
 

@@ -1,7 +1,7 @@
 import { Renderer, type GridParams, type HeroParams, type LightParams } from '../gl/renderer';
 import { materials, makeLayout, loc, type Layout, type Material } from '../data/materials';
 import { addTicker, onRender, wake, damp, clamp, lerp, ease, now } from '../lib/anim';
-import { reducedMotion } from '../state';
+import { reducedMotion, isSelected } from '../state';
 import { t, type Key } from '../i18n';
 import { h, finePointer } from '../lib/dom';
 
@@ -22,6 +22,7 @@ const srgb = (v: number) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1
 export const ACCENT: [number, number, number] = [srgb(0xe0 / 255), srgb(0x7a / 255), srgb(0x4f / 255)];
 
 const imod = (a: number, n: number) => ((a % n) + n) % n;
+const sameCell = (a: Cell, b: Cell) => a[0] === b[0] && a[1] === b[1];
 
 export class Atlas {
   onOpen: (m: Material, rect: Rect, cell: Cell) => void = () => {};
@@ -80,6 +81,8 @@ export class Atlas {
   private activeCellEl: HTMLElement | null = null;
   private caption: HTMLElement;
   private captionCell: Cell = NONE;
+  /** Cell whose hover caption was dismissed with Escape (WCAG 1.4.13); cleared on the next cell. */
+  private captionDismissed: Cell = NONE;
   private labels: HTMLElement[] = [];
   private labelLayer: HTMLElement;
 
@@ -457,6 +460,7 @@ export class Atlas {
           this.hovered = NONE;
         } else if (cell[0] !== prev[0] || cell[1] !== prev[1]) {
           this.hovered = cell;
+          this.captionDismissed = NONE;
           this.hover = 0;
           this.hoverSince = now();
           this.onHover(this.materialAt(cell));
@@ -466,6 +470,11 @@ export class Atlas {
       },
       { passive: true },
     );
+    addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || this.hovered === NONE || document.querySelector('dialog[open]')) return;
+      this.captionDismissed = this.hovered;
+      this.invalidate();
+    });
     document.addEventListener('pointerleave', () => {
       this.light.tk = 0.55;
       this.hovered = NONE;
@@ -519,7 +528,9 @@ export class Atlas {
   }
 
   private cellLabel(m: Material) {
-    return `${m.name}. ${loc(m.collection.name)}, ${t(`finish.${m.defaultFinish}` as Key).toLowerCase()}.`;
+    // the selection dot is drawn on the canvas: say it in the name too (WCAG 1.3.1)
+    const sel = isSelected(m.slug) ? ` ${t('detail.added')}.` : '';
+    return `${m.name}. ${loc(m.collection.name)}, ${t(`finish.${m.defaultFinish}` as Key).toLowerCase()}.${sel}`;
   }
 
   relabel() {
@@ -833,7 +844,7 @@ export class Atlas {
     }
 
     const cap = this.caption;
-    const showCap = !showLabels && !busy && this.hovered !== NONE && !this.drag && finePointer();
+    const showCap = !showLabels && !busy && this.hovered !== NONE && !this.drag && finePointer() && !sameCell(this.hovered, this.captionDismissed);
     if (showCap) {
       const c = this.hovered;
       if (c[0] !== this.captionCell[0] || c[1] !== this.captionCell[1]) {

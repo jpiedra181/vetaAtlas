@@ -33,6 +33,17 @@ export function setReducedMotion(v: boolean) {
   reducedMotion.set(v);
 }
 
+/* ---------- single-key shortcuts (on by default, can be turned off: WCAG 2.1.4) ---------- */
+
+const storedKeys = (() => {
+  try { return localStorage.getItem('veta:keys'); } catch { return null; }
+})();
+export const singleKeys = signal<boolean>(storedKeys !== 'off');
+export function setSingleKeys(v: boolean) {
+  try { localStorage.setItem('veta:keys', v ? 'on' : 'off'); } catch {}
+  singleKeys.set(v);
+}
+
 /* ---------- filters (synced with ?query) ---------- */
 
 const QS: Record<FacetId, string> = { collection: 'c', tone: 't', temp: 'k', finish: 'f', use: 'u', format: 'x' };

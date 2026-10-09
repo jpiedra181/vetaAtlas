@@ -12,8 +12,11 @@ import { reducedMotion } from '../state';
 import { t } from '../i18n';
 
 export interface SpaceOpts { material: Material; finish: Finish; format: string; joint: string | null }
+export type OrbitDir = 'left' | 'right' | 'up' | 'down' | 'in' | 'out';
 export interface SpaceHandle {
   set(o: SpaceOpts): void;
+  /** One camera step, from the keyboard or the buttons of the viewer. */
+  orbit(dir: OrbitDir): void;
   pause(): void;
   resume(): void;
   resize(): void;
@@ -21,6 +24,27 @@ export interface SpaceHandle {
 }
 
 const ROOM = { w: 7, d: 6, h: 3.2 };
+
+// camera orbit around the target: azimuth and elevation in radians, distance in metres
+const ORBIT_HOME = { az: 0.54, el: 0.1, dist: 5.85 };
+const AZ = { min: 0.1, max: 0.95 };
+const EL = { min: 0.02, max: 0.4 };
+const DIST = { min: 3.6, max: 6.4 };
+/** One step of the keyboard and of the camera buttons. */
+const ORBIT_STEP = { az: 0.08, el: 0.04, zoom: 0.9 };
+const ORBIT_DIR: Record<OrbitDir, [number, number, number]> = {
+  left: [-ORBIT_STEP.az, 0, 1],
+  right: [ORBIT_STEP.az, 0, 1],
+  up: [0, ORBIT_STEP.el, 1],
+  down: [0, -ORBIT_STEP.el, 1],
+  in: [0, 0, ORBIT_STEP.zoom],
+  out: [0, 0, 1 / ORBIT_STEP.zoom],
+};
+// WCAG 2.1.1: the camera also moves from the keyboard while the room has focus
+const ORBIT_KEYS: Record<string, OrbitDir> = {
+  ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', '+': 'in', '=': 'in', '-': 'out', '_': 'out',
+};
+const clamp = (v: number, r: { min: number; max: number }) => Math.min(r.max, Math.max(r.min, v));
 
 function rng(seed: number) {
   let s = seed >>> 0 || 1;
@@ -60,9 +84,14 @@ function bake(src: ImageBitmap, phys: number, format: string, joint: string, nor
   return { canvas: c, pw, ph };
 }
 
-export async function createSpace(host: HTMLElement, tier: 'm' | 'd'): Promise<SpaceHandle> {
+export async function createSpace(host: HTMLElement, tier: 'm' | 'd', hintId?: string): Promise<SpaceHandle> {
   const canvas = document.createElement('canvas');
-  canvas.setAttribute('role', 'img');
+  // application y no img: con img, NVDA en modo exploración se queda las flechas
+  // para su propio cursor y la cámara no gira. Con application pasa solo a modo foco.
+  canvas.setAttribute('role', 'application');
+  canvas.setAttribute('aria-roledescription', t('space.role'));
+  canvas.tabIndex = 0;
+  if (hintId) canvas.setAttribute('aria-describedby', hintId);
   host.append(canvas);
   const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
@@ -200,8 +229,9 @@ varying vec4 vReflUv;`)
       #include <opaque_fragment>`);
   };
 
-  // ---- camera orbit (drag), render on demand
-  const orbit = { az: 0.54, el: 0.1, dist: 5.85, taz: 0.54, tel: 0.1, tdist: 5.85 };
+  // ---- camera orbit (drag, wheel, keyboard, buttons), render on demand
+  const H = ORBIT_HOME;
+  const orbit = { az: H.az, el: H.el, dist: H.dist, taz: H.az, tel: H.el, tdist: H.dist };
   let raf = 0;
   let paused = false;
   let disposed = false;
@@ -258,11 +288,11 @@ varying vec4 vReflUv;`)
     if (pointers.size === 2) {
       const [a, b] = [...pointers.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (pinchD) orbit.tdist = Math.min(6.4, Math.max(3.6, orbit.tdist * (pinchD / d)));
+      if (pinchD) orbit.tdist = clamp(orbit.tdist * (pinchD / d), DIST);
       pinchD = d;
     } else {
-      orbit.taz = Math.min(0.95, Math.max(0.1, orbit.taz - dx * 0.004));
-      orbit.tel = Math.min(0.4, Math.max(0.02, orbit.tel + dy * 0.003));
+      orbit.taz = clamp(orbit.taz - dx * 0.004, AZ);
+      orbit.tel = clamp(orbit.tel + dy * 0.003, EL);
     }
     request();
   });
@@ -276,11 +306,28 @@ varying vec4 vReflUv;`)
     'wheel',
     (e) => {
       e.preventDefault();
-      orbit.tdist = Math.min(6.4, Math.max(3.6, orbit.tdist * Math.exp(e.deltaY * 0.001)));
+      orbit.tdist = clamp(orbit.tdist * Math.exp(e.deltaY * 0.001), DIST);
       request();
     },
     { passive: false },
   );
+  const orbitStep = (dir: OrbitDir) => {
+    const [dAz, dEl, kDist] = ORBIT_DIR[dir];
+    orbit.taz = clamp(orbit.taz + dAz, AZ);
+    orbit.tel = clamp(orbit.tel + dEl, EL);
+    orbit.tdist = clamp(orbit.tdist * kDist, DIST);
+    request();
+  };
+  canvas.addEventListener('keydown', (e) => {
+    const dir = ORBIT_KEYS[e.key];
+    if (dir) orbitStep(dir);
+    else if (e.key === 'Home') [orbit.taz, orbit.tel, orbit.tdist] = [H.az, H.el, H.dist];
+    else return;
+    // keep the arrows from also stepping to the previous / next surface
+    e.preventDefault();
+    e.stopPropagation();
+    request();
+  });
 
   // ---- material application
   let current: { slug: string; bitmaps: Promise<[ImageBitmap, ImageBitmap]> } | null = null;
@@ -337,6 +384,7 @@ varying vec4 vReflUv;`)
 
   return {
     set: (o) => void set(o),
+    orbit: orbitStep,
     pause() {
       paused = true;
       if (raf) cancelAnimationFrame(raf);

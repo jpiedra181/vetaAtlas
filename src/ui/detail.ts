@@ -1,5 +1,6 @@
 import type { Atlas, HeroController, Rect } from '../atlas/atlas';
 import type { HeroParams } from '../gl/renderer';
+import type { OrbitDir } from '../space/space';
 import type { DetailTex } from '../gl/textures';
 import {
   materials, loc, parseFormat, shading, thicknessMm, boxInfo, slipClass, calc, pairings, texUrl,
@@ -15,6 +16,24 @@ type Cell = [number, number];
 export interface OpenCtx { from: 'atlas' | 'index' | 'route'; rect?: Rect; cell?: Cell }
 
 const CM_PER_PX = 2.54 / 96;
+/** Zoom factor of one key press or button press in the viewer. */
+const ZOOM_STEP = 1.3;
+/** One press of a pan button moves the piece this fraction of the shorter side of the viewer. */
+const PAN_BUTTON_STEP = 0.2;
+/** Finger travel (px) before a one-finger touch pans the piece instead of only moving the light. */
+const TOUCH_PAN_SLOP = 9;
+
+type Tab = 'piece' | 'space';
+// The same six buttons pan the piece («Pieza») and move the camera («Espacio»): the single-pointer
+// alternative to dragging and pinching (WCAG 2.5.1 and 2.5.7). Label key and icon per tab.
+const PAD: Array<{ dir: OrbitDir; piece: [Key, string]; space: [Key, string] }> = [
+  { dir: 'left', piece: ['detail.pan.left', 'chevron-left'], space: ['space.turn.left', 'turn-left'] },
+  { dir: 'right', piece: ['detail.pan.right', 'chevron-right'], space: ['space.turn.right', 'turn-right'] },
+  { dir: 'up', piece: ['detail.pan.up', 'chevron-up'], space: ['space.tilt.up', 'chevron-up'] },
+  { dir: 'down', piece: ['detail.pan.down', 'chevron-down'], space: ['space.tilt.down', 'chevron-down'] },
+  { dir: 'out', piece: ['zoom.out', 'minus'], space: ['zoom.out', 'minus'] },
+  { dir: 'in', piece: ['zoom.in', 'plus'], space: ['zoom.in', 'plus'] },
+];
 type JointId = 'tone' | 'light' | 'grey' | 'dark';
 const JOINTS: Record<JointId, string | null> = { tone: null, light: '#d9d3ca', grey: '#8b867f', dark: '#2a2825' };
 const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
@@ -53,11 +72,13 @@ export class Detail implements HeroController {
   private mix = 0;
   private lastT = 0;
   private realScale = false;
-  private tab: 'piece' | 'space' = 'piece';
+  private tab: Tab = 'piece';
   private space: import('../space/space').SpaceHandle | null = null;
   private spaceLoading: Promise<void> | null = null;
-  private interacted = false;
-  private pan: null | { id: number; x: number; y: number; cx: number; cy: number } = null;
+  private interacted: Record<Tab, boolean> = { piece: false, space: false };
+  /** The viewer or the room has keyboard focus: the hint shows the keys. */
+  private keyHint = false;
+  private pan: null | { id: number; x: number; y: number; cx: number; cy: number; moved: boolean } = null;
   private touches = new Map<number, { x: number; y: number }>();
   private pinch: null | { d: number; k: number; mx: number; my: number; cx: number; cy: number } = null;
 
@@ -93,14 +114,14 @@ export class Detail implements HeroController {
       return;
     }
     this.ctx = ctx;
+    this.tab = 'piece';
+    this.interacted = { piece: false, space: false };
     this.setMaterial(m);
     this.build();
     this.dlg.showModal();
     document.body.classList.add('detail-open');
     this.dlg.dataset.state = 'opening';
     this.state = 'opening';
-    this.tab = 'piece';
-    this.interacted = false;
     this.realScale = false;
 
     const hole = this.holeRect();
@@ -420,7 +441,11 @@ export class Detail implements HeroController {
       if (this.pan && this.pan.id === e.pointerId) {
         if (e.pointerType !== 'mouse') {
           this.atlas.setLightTarget(e.clientX, e.clientY);
-          return;
+          // a still finger moves the light; once it travels it also pans (no two-finger gesture needed)
+          if (!this.pan.moved) {
+            if (Math.hypot(e.clientX - this.pan.x, e.clientY - this.pan.y) < TOUCH_PAN_SLOP) return;
+            this.pan = { ...this.pan, x: e.clientX, y: e.clientY, cx: this.win.cx, cy: this.win.cy, moved: true };
+          }
         }
         const k = this.win.k;
         this.win.cx = this.winT.cx = this.pan.cx - (e.clientX - this.pan.x) * k;
@@ -442,11 +467,11 @@ export class Detail implements HeroController {
             mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, cx: this.win.cx, cy: this.win.cy,
           };
           this.pan = null;
-        } else this.pan = { id: e.pointerId, x: e.clientX, y: e.clientY, cx: this.win.cx, cy: this.win.cy };
+        } else this.pan = { id: e.pointerId, x: e.clientX, y: e.clientY, cx: this.win.cx, cy: this.win.cy, moved: false };
         this.markInteracted();
         return;
       }
-      this.pan = { id: e.pointerId, x: e.clientX, y: e.clientY, cx: this.win.cx, cy: this.win.cy };
+      this.pan = { id: e.pointerId, x: e.clientX, y: e.clientY, cx: this.win.cx, cy: this.win.cy, moved: true };
       hole.classList.add('is-panning');
     });
     const up = (e: PointerEvent) => {
@@ -481,12 +506,55 @@ export class Detail implements HeroController {
         wake();
       } else if (e.key === '+' || e.key === '=') {
         e.preventDefault();
-        this.zoomAt(1 / 1.3);
+        this.zoomAt(1 / ZOOM_STEP);
       } else if (e.key === '-') {
         e.preventDefault();
-        this.zoomAt(1.3);
+        this.zoomAt(ZOOM_STEP);
       }
     });
+  }
+
+  /** Buttons of the viewer: pan / zoom the piece, or move the camera of the room. */
+  private padAction(dir: OrbitDir) {
+    this.markInteracted();
+    if (this.tab === 'space') {
+      this.space?.orbit(dir);
+      return;
+    }
+    if (dir === 'in' || dir === 'out') {
+      this.zoomAt(dir === 'in' ? 1 / ZOOM_STEP : ZOOM_STEP);
+      return;
+    }
+    const r = this.holeRect();
+    const step = PAN_BUTTON_STEP * Math.min(r.w, r.h) * this.winT.k;
+    const move: Record<'left' | 'right' | 'up' | 'down', [number, number]> = { left: [-step, 0], right: [step, 0], up: [0, -step], down: [0, step] };
+    this.winT.cx += move[dir][0];
+    this.winT.cy += move[dir][1];
+    wake();
+  }
+
+  private syncPad() {
+    const pad = this.els.pad;
+    if (!pad) return;
+    const tab = this.tab;
+    pad.setAttribute('aria-label', t(tab === 'space' ? 'space.pad' : 'detail.pad'));
+    pad.replaceChildren(...PAD.map((b) => {
+      const [label, icon] = b[tab];
+      return h('button.btn.btn-icon', { type: 'button', 'aria-label': t(label), onclick: () => this.padAction(b.dir) }, svgIcon(icon));
+    }));
+  }
+
+  /** Usage hint of the current tab (pointer, or keys while the view has keyboard focus); the pointer
+   *  hint fades after the first interaction with that tab. */
+  private syncHint() {
+    const hint = this.els.hint;
+    if (!hint) return;
+    const space = this.tab === 'space';
+    const keys: Key = space ? 'space.hint.keys' : 'detail.hint.keys';
+    const pointer: Key = finePointer() ? (space ? 'space.hint.mouse' : 'detail.hint.mouse') : space ? 'space.hint.touch' : 'detail.hint.touch';
+    hint.textContent = t(this.keyHint ? keys : pointer);
+    hint.dataset.hide = String(!this.keyHint && this.interacted[this.tab]);
+    this.els.keys.textContent = t(keys);
   }
 
   private zoomAt(f: number, ax?: number, ay?: number) {
@@ -518,9 +586,9 @@ export class Detail implements HeroController {
   }
 
   private markInteracted() {
-    if (this.interacted) return;
-    this.interacted = true;
-    this.els.hint?.setAttribute('data-hide', 'true');
+    if (this.interacted[this.tab]) return;
+    this.interacted[this.tab] = true;
+    if (!this.keyHint) this.els.hint?.setAttribute('data-hide', 'true');
   }
 
   private onKey(e: KeyboardEvent) {
@@ -539,9 +607,23 @@ export class Detail implements HeroController {
 
   private build() {
     const els = this.els;
-    this.hole = h('div.d-hole', { tabindex: 0, role: 'img', 'aria-describedby': 'd-hint', id: 'd-hole' });
+    // application, como la estancia: así las flechas llegan al visor también con NVDA.
+    this.hole = h('div.d-hole', { tabindex: 0, role: 'application', 'aria-roledescription': t('detail.viewer.role'), 'aria-describedby': 'd-keys', id: 'd-hole' });
     els.space = h('div.d-space', { hidden: true, id: 'd-space' });
-    els.hint = h('p.d-hint', { id: 'd-hint' }, finePointer() ? t('detail.hint.mouse') : t('detail.hint.touch'));
+    for (const ev of ['pointerdown', 'wheel', 'keydown']) els.space.addEventListener(ev, () => this.markInteracted(), { passive: true, capture: true });
+    els.hint = h('p.d-hint', { id: 'd-hint' });
+    els.keys = h('p.sr-only', { id: 'd-keys' });
+    // keyboard focus (or a key pressed after a click) on the viewer or the room: show the keys
+    const keyFocus = (on: boolean) => (e: Event) => {
+      if (on === this.keyHint || (on && !(e.target as HTMLElement).matches(':focus-visible'))) return;
+      this.keyHint = on;
+      this.syncHint();
+    };
+    for (const el of [this.hole, els.space]) {
+      el.addEventListener('focusin', keyFocus(true));
+      el.addEventListener('keydown', keyFocus(true), { capture: true });
+      el.addEventListener('focusout', keyFocus(false));
+    }
     els.back = h('button.btn', { type: 'button', autofocus: true, onclick: () => this.requestClose() }, svgIcon('arrow-left'), h('span', {}, t('detail.back')));
     els.prev = h('button.btn.btn-icon', { type: 'button', 'aria-label': t('detail.prev'), onclick: () => this.step(-1) }, svgIcon('arrow-left'));
     els.next = h('button.btn.btn-icon', { type: 'button', 'aria-label': t('detail.next'), onclick: () => this.step(1) }, svgIcon('arrow-right'));
@@ -562,15 +644,19 @@ export class Detail implements HeroController {
     });
     els.scaleTag = h('span.d-scale-tag', { 'aria-hidden': 'true' });
     els.scale = h('button.btn', { type: 'button', 'aria-pressed': 'false', onclick: () => this.toggleScale() }, svgIcon('scale', 16), h('span', {}, t('detail.scale')));
+    els.pad = h('div.d-pad', { role: 'group' });
     const ui = h('div.d-ui', {},
       h('div.d-top', {}, els.back, h('div.d-nav', {}, els.prev, els.next)),
       els.hint,
       h('div.d-bottom', {}, tabs, h('div', { style: 'display:flex;gap:6px;align-items:center' }, els.scaleTag, els.scale)),
+      els.pad,
     );
-    const viewer = h('div.d-viewer', {}, this.hole, els.space, ui);
+    const viewer = h('div.d-viewer', {}, this.hole, els.space, ui, els.keys);
     els.panel = h('div.d-panel', {}, (els.inner = h('div.d-panel-inner')));
     this.dlg.replaceChildren(h('div.d-wrap', {}, viewer, els.panel));
     this.bindViewer();
+    this.syncPad();
+    this.syncHint();
     this.renderPanel();
   }
 
@@ -728,7 +814,7 @@ export class Detail implements HeroController {
 
   /* ------------------------------------------------------------ tabs / room */
 
-  private setTab(tab: 'piece' | 'space', user: boolean) {
+  private setTab(tab: Tab, user: boolean) {
     if (this.tab === tab && this.els.tabPiece) {
       if (!user) return;
     }
@@ -742,7 +828,11 @@ export class Detail implements HeroController {
     els.space.hidden = tab !== 'space';
     els.scale.hidden = tab === 'space';
     els.scaleTag.hidden = tab === 'space';
-    els.hint.hidden = tab === 'space';
+    // the piece viewer stays under the room: out of the tab order while «Espacio» is shown (WCAG 2.4.7)
+    this.hole.tabIndex = tab === 'piece' ? 0 : -1;
+    this.hole.toggleAttribute('inert', tab !== 'piece');
+    this.syncPad();
+    this.syncHint();
     if (tab === 'space') this.ensureSpace();
     else this.space?.pause();
     this.atlas.invalidate();
@@ -761,7 +851,7 @@ export class Detail implements HeroController {
     this.spaceLoading = import('../space/space')
       .then(async ({ createSpace }) => {
         if (this.state === 'closed') return;
-        this.space = await createSpace(host, this.atlas.renderer.details.tier);
+        this.space = await createSpace(host, this.atlas.renderer.details.tier, this.els.keys.id);
         status.remove();
         this.updateSpace();
         if (this.tab !== 'space') this.space.pause();
