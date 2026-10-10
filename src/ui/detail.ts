@@ -607,7 +607,7 @@ export class Detail implements HeroController {
 
   private build() {
     const els = this.els;
-    // application, como la estancia: así las flechas llegan al visor también con NVDA.
+    // application, like the room view: so arrow keys reach the viewer with NVDA too.
     this.hole = h('div.d-hole', { tabindex: 0, role: 'application', 'aria-roledescription': t('detail.viewer.role'), 'aria-describedby': 'd-keys', id: 'd-hole' });
     els.space = h('div.d-space', { hidden: true, id: 'd-space' });
     for (const ev of ['pointerdown', 'wheel', 'keydown']) els.space.addEventListener(ev, () => this.markInteracted(), { passive: true, capture: true });

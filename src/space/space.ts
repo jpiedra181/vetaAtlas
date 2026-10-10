@@ -86,8 +86,8 @@ function bake(src: ImageBitmap, phys: number, format: string, joint: string, nor
 
 export async function createSpace(host: HTMLElement, tier: 'm' | 'd', hintId?: string): Promise<SpaceHandle> {
   const canvas = document.createElement('canvas');
-  // application y no img: con img, NVDA en modo exploración se queda las flechas
-  // para su propio cursor y la cámara no gira. Con application pasa solo a modo foco.
+  // application, not img: with img, NVDA in browse mode keeps the arrow keys for its own
+  // cursor and the camera never turns. With application it switches to focus mode by itself.
   canvas.setAttribute('role', 'application');
   canvas.setAttribute('aria-roledescription', t('space.role'));
   canvas.tabIndex = 0;

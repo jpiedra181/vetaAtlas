@@ -142,7 +142,8 @@
     <dialog id="about" class="sheet" aria-labelledby="about-title"></dialog>
 
     <div id="print-sheet" aria-hidden="true"></div>
-    <div id="toast" role="status" data-show="false"></div>
+    <!-- Visual only: the message is announced through announce() (src/ui/live.ts). With role=status it was read twice. -->
+    <div id="toast" aria-hidden="true" data-show="false"></div>
     <div id="live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     <noscript><p class="noscript">VETA necesita JavaScript para mostrar el atlas de superficies.</p></noscript>
     <script type="module" src="/src/main.ts"></script>

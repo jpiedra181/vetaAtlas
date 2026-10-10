@@ -141,8 +141,8 @@ export class SelectionUI {
       input.setAttribute('aria-describedby', `${id}-err`);
       return h('div.field', {}, h('label', { for: id }, label, optional ? h('span.opt', {}, ` (${t('form.optional')})`) : null), input, err);
     };
-    // Sin role=alert: el resumen recibe el foco y NVDA ya lo lee entero; con los dos,
-    // lo anunciaba dos veces.
+    // No role=alert: the summary receives focus and NVDA reads it in full; with both,
+    // it was announced twice.
     const summary = h('div.err-summary', { tabindex: -1, hidden: true });
     const name = h('input', { name: 'name', autocomplete: 'name', required: true });
     const email = h('input', { name: 'email', type: 'email', autocomplete: 'email', required: true, inputmode: 'email' });
